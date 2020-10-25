@@ -1,0 +1,6 @@
+C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\bin\LayerTableWatcher.dll
+C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\bin\LayerTableWatcher.pdb
+C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.csprojAssemblyReference.cache
+C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.csproj.CoreCompileInputs.cache
+C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.dll
+C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.pdb
