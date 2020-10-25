@@ -141,8 +141,9 @@ namespace LayerTableEvents
         {
             RhinoDoc.NewDocument += ToggleExpireSolution;
             RhinoDoc.EndOpenDocument += ToggleExpireSolution;
-            RhinoDoc.BeginSaveDocument += ToggleExpireSolution;
+            RhinoDoc.EndSaveDocument += ToggleExpireSolution;
             RhinoDoc.CloseDocument += ToggleExpireSolution;
+            RhinoDoc.ActiveDocumentChanged += ToggleExpireSolution;
 
             RhinoDoc.LayerTableEvent += rhinoDocLayerTableEvent;
 
@@ -153,8 +154,9 @@ namespace LayerTableEvents
         {
             RhinoDoc.NewDocument -= ToggleExpireSolution;
             RhinoDoc.EndOpenDocument -= ToggleExpireSolution;
-            RhinoDoc.BeginSaveDocument -= ToggleExpireSolution;
+            RhinoDoc.EndSaveDocument -= ToggleExpireSolution;
             RhinoDoc.CloseDocument -= ToggleExpireSolution;
+            RhinoDoc.ActiveDocumentChanged -= ToggleExpireSolution;
 
             RhinoDoc.LayerTableEvent -= rhinoDocLayerTableEvent;
 

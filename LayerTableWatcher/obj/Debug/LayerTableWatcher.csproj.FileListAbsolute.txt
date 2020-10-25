@@ -4,3 +4,9 @@ C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerT
 C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.csproj.CoreCompileInputs.cache
 C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.dll
 C:\Users\chris\source\repos\LayerTableWatcher\LayerTableWatcher\obj\Debug\LayerTableWatcher.pdb
+C:\Users\chris\Documents\GitHub\layer-table-watcher-grasshopper\LayerTableWatcher\bin\LayerTableWatcher.dll
+C:\Users\chris\Documents\GitHub\layer-table-watcher-grasshopper\LayerTableWatcher\bin\LayerTableWatcher.pdb
+C:\Users\chris\Documents\GitHub\layer-table-watcher-grasshopper\LayerTableWatcher\obj\Debug\LayerTableWatcher.csprojAssemblyReference.cache
+C:\Users\chris\Documents\GitHub\layer-table-watcher-grasshopper\LayerTableWatcher\obj\Debug\LayerTableWatcher.csproj.CoreCompileInputs.cache
+C:\Users\chris\Documents\GitHub\layer-table-watcher-grasshopper\LayerTableWatcher\obj\Debug\LayerTableWatcher.dll
+C:\Users\chris\Documents\GitHub\layer-table-watcher-grasshopper\LayerTableWatcher\obj\Debug\LayerTableWatcher.pdb
