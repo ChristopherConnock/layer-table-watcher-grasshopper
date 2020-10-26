@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Components;
 using Rhino;
 using Rhino.DocObjects;
 
@@ -43,7 +45,6 @@ namespace LayerTableEvents
             pManager.AddBooleanParameter("Auto-Update", "AU", "If this value is set to true, the component will listen for changes to the layer table based on the toggled events, and automatically update each time something changes. Use with caution - you can create an infinite loop if you create layers downstream based on outputs from this component.", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Added", "EA", "Trigger on Added event.", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("Deleted", "ED", "Trigger on Deleted event.", GH_ParamAccess.item, true);
-            pManager.AddBooleanParameter("Undeleted", "EU", "Trigger on Undeleted event.", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("Modified", "EM", "Trigger on Modified event.", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("Sorted", "ES", "Trigger on Sorted event.", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Current", "EC", "Trigger on Current layer change event.", GH_ParamAccess.item, false);
@@ -62,9 +63,10 @@ namespace LayerTableEvents
             pManager.AddTextParameter("Material Names", "M", "The list of material names associated with the document layers.", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Visible", "V", "True if layer is visible.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Print Width", "PW", "The print widths associated with the document layers.", GH_ParamAccess.list);
-            pManager.AddColourParameter("Print Color", "PC", "The print color for the layer.", GH_ParamAccess.list);
+            pManager.AddColourParameter("Print Color", "PC", "The print color of the layer.", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Locked", "LL", "True if layer is locked.", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Expanded", "LE", "True if layer is expanded.", GH_ParamAccess.list);
         }
-
 
         /// <summary>
         /// This is the method that actually does the work.
@@ -73,11 +75,12 @@ namespace LayerTableEvents
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            RemoveEvents();
+
             bool update = false;
             bool autoUpdate = false;
             bool eventAdded = true;
             bool eventDeleted = true;
-            bool eventUndeleted = true;
             bool eventModified = true;
             bool eventSorted = false;
             bool eventCurrent = false;
@@ -86,12 +89,9 @@ namespace LayerTableEvents
             if (!DA.GetData(1, ref autoUpdate)) return;
             if (!DA.GetData(2, ref eventAdded)) return;
             if (!DA.GetData(3, ref eventDeleted)) return;
-            if (!DA.GetData(4, ref eventUndeleted)) return;
-            if (!DA.GetData(5, ref eventModified)) return;
-            if (!DA.GetData(6, ref eventSorted)) return;
-            if (!DA.GetData(7, ref eventCurrent)) return;
-
-            RemoveEvents();
+            if (!DA.GetData(4, ref eventModified)) return;
+            if (!DA.GetData(5, ref eventSorted)) return;
+            if (!DA.GetData(6, ref eventCurrent)) return;
 
             RhinoDoc doc = RhinoDoc.ActiveDoc;
             Rhino.DocObjects.Tables.LayerTable layerTable = doc.Layers;
@@ -106,6 +106,8 @@ namespace LayerTableEvents
             List<bool> visible = new List<bool>();
             List<double> printwidth = new List<double>();
             List<Color> printcolor = new List<Color>();
+            List<bool> locked = new List<bool>();
+            List<bool> expanded = new List<bool>();
 
             foreach (Layer layer in layerTable)
             {
@@ -119,6 +121,8 @@ namespace LayerTableEvents
                     visible.Add(layer.IsVisible);
                     printwidth.Add(layer.PlotWeight);
                     printcolor.Add(layer.PlotColor);
+                    locked.Add(layer.IsLocked);
+                    expanded.Add(layer.IsExpanded);
                 }
             }
 
@@ -130,45 +134,32 @@ namespace LayerTableEvents
             DA.SetDataList(5, visible);
             DA.SetDataList(6, printwidth);
             DA.SetDataList(7, printcolor);
+            DA.SetDataList(8, locked);
+            DA.SetDataList(9, expanded);
 
-            rhinoDocLayerTableEvent = (sender, e) => ProcessLayerTableEvent(sender, e, eventAdded, eventDeleted, eventUndeleted, eventModified, eventSorted, eventCurrent);
+            rhinoDocLayerTableEvent = (sender, e) => ProcessLayerTableEvent(sender, e, eventAdded, eventDeleted, eventModified, eventSorted, eventCurrent);
 
             if (autoUpdate) AddEvents();
+        }
 
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            RemoveEvents();
         }
 
         void AddEvents()
         {
-            RhinoDoc.NewDocument += ToggleExpireSolution;
-            RhinoDoc.EndOpenDocument += ToggleExpireSolution;
-            RhinoDoc.EndSaveDocument += ToggleExpireSolution;
-            RhinoDoc.CloseDocument += ToggleExpireSolution;
-            RhinoDoc.ActiveDocumentChanged += ToggleExpireSolution;
-
             RhinoDoc.LayerTableEvent += rhinoDocLayerTableEvent;
-
             RhinoApp.Idle += RhinoAppIdle;
         }
 
         void RemoveEvents()
         {
-            RhinoDoc.NewDocument -= ToggleExpireSolution;
-            RhinoDoc.EndOpenDocument -= ToggleExpireSolution;
-            RhinoDoc.EndSaveDocument -= ToggleExpireSolution;
-            RhinoDoc.CloseDocument -= ToggleExpireSolution;
-            RhinoDoc.ActiveDocumentChanged -= ToggleExpireSolution;
-
             RhinoDoc.LayerTableEvent -= rhinoDocLayerTableEvent;
-
             RhinoApp.Idle -= RhinoAppIdle;
         }
 
-        private void ToggleExpireSolution(object sender, DocumentEventArgs e)
-        {
-            expireSolution = true;
-        }
-
-        private void ProcessLayerTableEvent(object sender, Rhino.DocObjects.Tables.LayerTableEventArgs e, Boolean eA, Boolean eD, Boolean eU, Boolean eM, Boolean eS, Boolean eC)
+        private void ProcessLayerTableEvent(object sender, Rhino.DocObjects.Tables.LayerTableEventArgs e, Boolean eA, Boolean eD, Boolean eM, Boolean eS, Boolean eC)
         {
             if (!expireSolution)
             {
@@ -181,7 +172,7 @@ namespace LayerTableEvents
                         if (eD) expireSolution = true;
                         return;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Undeleted:
-                        if (eU) expireSolution = true;
+                        if (eA) expireSolution = true;
                         return;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Modified:
                         if (eM) expireSolution = true;
