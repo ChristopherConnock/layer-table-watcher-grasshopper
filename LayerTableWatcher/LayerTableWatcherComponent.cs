@@ -144,56 +144,64 @@ namespace LayerTableEvents
 
         public override void RemovedFromDocument(GH_Document document)
         {
+            RhinoApp.WriteLine("RemovedFromDocument");
             RemoveEvents();
         }
 
         void AddEvents()
         {
+            RhinoApp.WriteLine("AddEvents");
             RhinoDoc.LayerTableEvent += rhinoDocLayerTableEvent;
-            RhinoApp.Idle += RhinoAppIdle;
         }
 
         void RemoveEvents()
         {
+            RhinoApp.WriteLine("RemoveEvents");
             RhinoDoc.LayerTableEvent -= rhinoDocLayerTableEvent;
             RhinoApp.Idle -= RhinoAppIdle;
         }
 
         private void ProcessLayerTableEvent(object sender, Rhino.DocObjects.Tables.LayerTableEventArgs e, Boolean eA, Boolean eD, Boolean eM, Boolean eS, Boolean eC)
         {
+            RhinoApp.WriteLine("ProcessLayerTableEvent");
             if (!expireSolution)
             {
+                RhinoApp.WriteLine("!expireSolution");
                 switch (e.EventType)
                 {
                     case Rhino.DocObjects.Tables.LayerTableEventType.Added:
                         if (eA) expireSolution = true;
-                        return;
+                        break;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Deleted:
                         if (eD) expireSolution = true;
-                        return;
+                        break;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Undeleted:
                         if (eA) expireSolution = true;
-                        return;
+                        break;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Modified:
                         if (eM) expireSolution = true;
-                        return;
+                        break;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Sorted:
                         if (eS) expireSolution = true;
-                        return;
+                        break;
                     case Rhino.DocObjects.Tables.LayerTableEventType.Current:
                         if (eC) expireSolution = true;
-                        return;
+                        break;
                     default:
-                        return;
+                        break;
                 }
+                RhinoApp.Idle += RhinoAppIdle;
             }
 
         }
 
         private void RhinoAppIdle(object sender, EventArgs e)
         {
+            RhinoApp.WriteLine("RhinoAppIdle");
             if (expireSolution)
             {
+                RhinoApp.WriteLine("expireSolution");
+                RhinoApp.Idle -= RhinoAppIdle;
                 ExpireSolution(true);
                 expireSolution = false;
             }
