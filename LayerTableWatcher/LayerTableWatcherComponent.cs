@@ -190,7 +190,7 @@ namespace LayerTableEvents
                     default:
                         break;
                 }
-                RhinoApp.Idle += RhinoAppIdle;
+                if (expireSolution) RhinoApp.Idle += RhinoAppIdle;
             }
 
         }
