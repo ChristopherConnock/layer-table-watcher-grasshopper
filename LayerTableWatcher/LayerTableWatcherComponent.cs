@@ -35,7 +35,6 @@ namespace LayerTableEvents
         private bool expireSolution;
         private EventHandler<Rhino.DocObjects.Tables.LayerTableEventArgs> rhinoDocLayerTableEvent;
 
-
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
@@ -49,7 +48,6 @@ namespace LayerTableEvents
             pManager.AddBooleanParameter("Sorted", "ES", "Trigger on Sorted event.", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Current", "EC", "Trigger on Current layer change event.", GH_ParamAccess.item, false);
         }
-
 
         /// <summary>
         /// Registers all the output parameters for this component.
@@ -142,6 +140,51 @@ namespace LayerTableEvents
             if (autoUpdate) AddEvents();
         }
 
+        /// <summary>
+        /// This method will be called when the document that owns this object moves into a different context.
+        /// </summary>
+        /// <param name="document">Document that owns this object.</param>
+        /// <param name="context">The reason for this event.<br/>
+        ///     Unknown	 0	Specifies unknown context.This should never be used.<br/>
+        ///     None     1	Specifies unset state.This is only used for documents that have never been in a context.<br/>
+        ///     Open     2	Indicates the document was created anew from a file.<br/>
+        ///     Close    3	Indicates the document has been unloaded from memory.<br/>
+        ///     Loaded   4	Indicates the document has been loaded into the Canvas.<br/>
+        ///     Unloaded 5	Indicates the document has been unloaded from the Canvas.<br/>
+        ///     Lock     6	Indicates the document has been locked. This is only possible for nested documents.<br/>
+        ///     Unlock   7	Indicates the document has been unlocked. This is only possible for nested documents.
+        /// </param>
+        public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context)
+        {
+            RhinoApp.WriteLine("DocumentContextChanged");
+            switch (context)
+            {
+                case GH_DocumentContext.Open:
+                    RhinoApp.WriteLine("Open");
+                    break;
+                case GH_DocumentContext.Close:
+                    RhinoApp.WriteLine("Close");
+                    RemoveEvents();
+                    break;
+                case GH_DocumentContext.Loaded:
+                    RhinoApp.WriteLine("Loaded");
+                    break;
+                case GH_DocumentContext.Unloaded:
+                    RhinoApp.WriteLine("Unloaded");
+                    RemoveEvents();
+                    break;
+                case GH_DocumentContext.Lock:
+                    RhinoApp.WriteLine("Lock");
+                    RemoveEvents();
+                    break;
+                case GH_DocumentContext.Unlock:
+                    RhinoApp.WriteLine("Unlock");
+                    break;
+                default:
+                    break;
+            }
+        }
+
         public override void RemovedFromDocument(GH_Document document)
         {
             RhinoApp.WriteLine("RemovedFromDocument");
@@ -202,8 +245,8 @@ namespace LayerTableEvents
             {
                 RhinoApp.WriteLine("expireSolution");
                 RhinoApp.Idle -= RhinoAppIdle;
-                ExpireSolution(true);
                 expireSolution = false;
+                ExpireSolution(true);
             }
         }
 
