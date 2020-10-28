@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Components;
 using Rhino;
 using Rhino.DocObjects;
+using Rhino.DocObjects.Tables;
+
+
+// RW: No per component watcher? Single event handler? Ala Ladybug's buzzzzz? Output Debug triggers? How does it deal with worksessions? Toggle for linked worksesh docs...
 
 // In order to load the result of this wizard, you will also need to
 // add the output bin/ folder of this project to the list of loaded
@@ -33,7 +38,7 @@ namespace LayerTableEvents
         }
 
         private bool expireSolution;
-        private EventHandler<Rhino.DocObjects.Tables.LayerTableEventArgs> rhinoDocLayerTableEvent;
+        private EventHandler<LayerTableEventArgs> rhinoDocLayerTableEvent;
 
         /// <summary>
         /// Registers all the input parameters for this component.
@@ -47,6 +52,11 @@ namespace LayerTableEvents
             pManager.AddBooleanParameter("Modified", "EM", "Trigger on Modified event.", GH_ParamAccess.item, true);
             pManager.AddBooleanParameter("Sorted", "ES", "Trigger on Sorted event.", GH_ParamAccess.item, false);
             pManager.AddBooleanParameter("Current", "EC", "Trigger on Current layer change event.", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Modified Locked", "EML", "Trigger on Modified:Locked change event.", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Modified Visible", "EMV", "Trigger on Modified:Visible change event.", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Modified Parent", "EMP", "Trigger on Modified:Parent change event.", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Modified Name", "EMN", "Trigger on Modified:Name change event.", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Modified Color", "EMC", "Trigger on Modified:Color change event.", GH_ParamAccess.item, true);
         }
 
         /// <summary>
@@ -75,13 +85,18 @@ namespace LayerTableEvents
         {
             RemoveEvents();
 
-            bool update = false;
+            bool update = false; // how does this act as a true toggle (only on true)?
             bool autoUpdate = false;
             bool eventAdded = true;
             bool eventDeleted = true;
             bool eventModified = true;
             bool eventSorted = false;
             bool eventCurrent = false;
+            bool eventModifiedLocked = true;
+            bool eventModifiedVisible = true;
+            bool eventModifiedParent = true;
+            bool eventModifiedName = true;
+            bool eventModifiedColor = true;
 
             if (!DA.GetData(0, ref update)) return;
             if (!DA.GetData(1, ref autoUpdate)) return;
@@ -90,22 +105,26 @@ namespace LayerTableEvents
             if (!DA.GetData(4, ref eventModified)) return;
             if (!DA.GetData(5, ref eventSorted)) return;
             if (!DA.GetData(6, ref eventCurrent)) return;
+            if (!DA.GetData(7, ref eventModifiedLocked)) return;
+            if (!DA.GetData(8, ref eventModifiedVisible)) return;
+            if (!DA.GetData(9, ref eventModifiedParent)) return;
+            if (!DA.GetData(10, ref eventModifiedName)) return;
+            if (!DA.GetData(11, ref eventModifiedColor)) return;
 
             RhinoDoc doc = RhinoDoc.ActiveDoc;
-            Rhino.DocObjects.Tables.LayerTable layerTable = doc.Layers;
-            Rhino.DocObjects.Tables.MaterialTable materialTable = doc.Materials;
-            Rhino.DocObjects.Tables.LinetypeTable linetypeTable = doc.Linetypes;
+            LayerTable layerTable = doc.Layers;
+            LinetypeTable linetypeTable = doc.Linetypes;
 
-            List<string> name = new List<string>();
-            List<string> fullPath = new List<string>();
-            List<Color> color = new List<Color>();
-            List<string> linetype = new List<string>();
-            List<string> material = new List<string>();
-            List<bool> visible = new List<bool>();
-            List<double> printwidth = new List<double>();
-            List<Color> printcolor = new List<Color>();
-            List<bool> locked = new List<bool>();
-            List<bool> expanded = new List<bool>();
+            var name = new List<string>();
+            var fullPath = new List<string>();
+            var color = new List<Color>();
+            var linetype = new List<string>();
+            var material = new List<string>();
+            var visible = new List<bool>();
+            var printwidth = new List<double>();
+            var printcolor = new List<Color>();
+            var locked = new List<bool>();
+            var expanded = new List<bool>();
 
             foreach (Layer layer in layerTable)
             {
@@ -135,7 +154,20 @@ namespace LayerTableEvents
             DA.SetDataList(8, locked);
             DA.SetDataList(9, expanded);
 
-            rhinoDocLayerTableEvent = (sender, e) => ProcessLayerTableEvent(sender, e, eventAdded, eventDeleted, eventModified, eventSorted, eventCurrent);
+            rhinoDocLayerTableEvent = (sender, e) => ProcessLayerTableEvent(
+                sender, 
+                e, 
+                eventAdded, 
+                eventDeleted, 
+                eventModified, 
+                eventSorted, 
+                eventCurrent, 
+                eventModifiedLocked, 
+                eventModifiedVisible,
+                eventModifiedParent,
+                eventModifiedName,
+                eventModifiedColor
+                );
 
             if (autoUpdate) AddEvents();
         }
@@ -145,14 +177,14 @@ namespace LayerTableEvents
         /// </summary>
         /// <param name="document">Document that owns this object.</param>
         /// <param name="context">The reason for this event.<br/>
-        ///     Unknown	 0	Specifies unknown context.This should never be used.<br/>
-        ///     None     1	Specifies unset state.This is only used for documents that have never been in a context.<br/>
-        ///     Open     2	Indicates the document was created anew from a file.<br/>
-        ///     Close    3	Indicates the document has been unloaded from memory.<br/>
-        ///     Loaded   4	Indicates the document has been loaded into the Canvas.<br/>
-        ///     Unloaded 5	Indicates the document has been unloaded from the Canvas.<br/>
-        ///     Lock     6	Indicates the document has been locked. This is only possible for nested documents.<br/>
-        ///     Unlock   7	Indicates the document has been unlocked. This is only possible for nested documents.
+        ///     Unknown	 0:	Specifies unknown context.This should never be used.<br/>
+        ///     None     1:	Specifies unset state.This is only used for documents that have never been in a context.<br/>
+        ///     Open     2:	Indicates the document was created anew from a file.<br/>
+        ///     Close    3:	Indicates the document has been unloaded from memory.<br/>
+        ///     Loaded   4:	Indicates the document has been loaded into the Canvas.<br/>
+        ///     Unloaded 5:	Indicates the document has been unloaded from the Canvas.<br/>
+        ///     Lock     6:	Indicates the document has been locked. This is only possible for nested documents.<br/>
+        ///     Unlock   7:	Indicates the document has been unlocked. This is only possible for nested documents.
         /// </param>
         public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context)
         {
@@ -194,17 +226,53 @@ namespace LayerTableEvents
         void AddEvents()
         {
             RhinoApp.WriteLine("AddEvents");
+
             RhinoDoc.LayerTableEvent += rhinoDocLayerTableEvent;
+
+            RhinoDoc.NewDocument += ProcessRhinoDocEvent;
+            RhinoDoc.EndOpenDocument += ProcessRhinoDocEvent;
+            RhinoDoc.EndSaveDocument += ProcessRhinoDocEvent;
+            RhinoDoc.CloseDocument += ProcessRhinoDocEvent;
+            RhinoDoc.ActiveDocumentChanged += ProcessRhinoDocEvent;
         }
 
         void RemoveEvents()
         {
             RhinoApp.WriteLine("RemoveEvents");
+
             RhinoDoc.LayerTableEvent -= rhinoDocLayerTableEvent;
+
+            RhinoDoc.NewDocument -= ProcessRhinoDocEvent;
+            RhinoDoc.EndOpenDocument -= ProcessRhinoDocEvent;
+            RhinoDoc.EndSaveDocument -= ProcessRhinoDocEvent;
+            RhinoDoc.CloseDocument -= ProcessRhinoDocEvent;
+            RhinoDoc.ActiveDocumentChanged -= ProcessRhinoDocEvent;
+
             RhinoApp.Idle -= RhinoAppIdle;
         }
 
-        private void ProcessLayerTableEvent(object sender, Rhino.DocObjects.Tables.LayerTableEventArgs e, Boolean eA, Boolean eD, Boolean eM, Boolean eS, Boolean eC)
+        private void ProcessRhinoDocEvent(object sender, DocumentEventArgs e)
+        {
+            RhinoApp.WriteLine("ToggleExpireSolution");
+            if (!expireSolution) {
+                expireSolution = true;
+                RhinoApp.Idle += RhinoAppIdle;
+            }
+        }
+
+        private void ProcessLayerTableEvent(
+            object sender, 
+            LayerTableEventArgs e, 
+            bool eA, 
+            bool eD, 
+            bool eM, 
+            bool eS, 
+            bool eC, 
+            bool eML, 
+            bool eMV, 
+            bool eMP, 
+            bool eMN, 
+            bool eMC)
         {
             RhinoApp.WriteLine("ProcessLayerTableEvent");
             if (!expireSolution)
@@ -212,22 +280,51 @@ namespace LayerTableEvents
                 RhinoApp.WriteLine("!expireSolution");
                 switch (e.EventType)
                 {
-                    case Rhino.DocObjects.Tables.LayerTableEventType.Added:
+                    case LayerTableEventType.Added:
+                        RhinoApp.WriteLine("Added");
                         if (eA) expireSolution = true;
                         break;
-                    case Rhino.DocObjects.Tables.LayerTableEventType.Deleted:
+                    case LayerTableEventType.Deleted:
+                        RhinoApp.WriteLine("Deleted");
                         if (eD) expireSolution = true;
                         break;
-                    case Rhino.DocObjects.Tables.LayerTableEventType.Undeleted:
+                    case LayerTableEventType.Undeleted:
+                        RhinoApp.WriteLine("Undeleted");
                         if (eA) expireSolution = true;
                         break;
-                    case Rhino.DocObjects.Tables.LayerTableEventType.Modified:
-                        if (eM) expireSolution = true;
+                    case LayerTableEventType.Modified:
+                        RhinoApp.WriteLine("Modified");
+                        if (eM)
+                        {
+                            if (!eML || !eMV || !eMP || !eMN || !eMC)
+                            {
+                                RhinoApp.WriteLine("!Modifier");
+                                if (e.OldState != null && e.NewState != null)
+                                {
+                                    RhinoApp.WriteLine("!State");
+                                    if ( (eML && e.OldState.IsLocked != e.NewState.IsLocked) ||
+                                        (eMV && e.OldState.IsVisible != e.NewState.IsVisible) ||
+                                        (eMP && e.OldState.ParentLayerId != e.NewState.ParentLayerId) ||
+                                        (eMN && e.OldState.Name != e.NewState.Name) ||
+                                        (eMC && e.OldState.Color != e.NewState.Color))
+                                    {
+                                        RhinoApp.WriteLine("expireSolution");
+                                        expireSolution = true;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                               expireSolution = true;
+                            }
+                        }
                         break;
-                    case Rhino.DocObjects.Tables.LayerTableEventType.Sorted:
+                    case LayerTableEventType.Sorted:
+                        RhinoApp.WriteLine("Sorted");
                         if (eS) expireSolution = true;
                         break;
-                    case Rhino.DocObjects.Tables.LayerTableEventType.Current:
+                    case LayerTableEventType.Current:
+                        RhinoApp.WriteLine("Current");
                         if (eC) expireSolution = true;
                         break;
                     default:
@@ -235,7 +332,6 @@ namespace LayerTableEvents
                 }
                 if (expireSolution) RhinoApp.Idle += RhinoAppIdle;
             }
-
         }
 
         private void RhinoAppIdle(object sender, EventArgs e)
