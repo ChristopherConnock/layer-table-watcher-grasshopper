@@ -34,8 +34,6 @@ namespace LayerTableEvents
               "Gets the list of layers in the active document per specified events",
               "KieranTimberlake", "Document Info")
         {
-            m_expireSolution = false;
-
             m_new_document = null;
             m_end_open_document = null;
             m_close_document = null;
@@ -57,8 +55,6 @@ namespace LayerTableEvents
             m_eventModifiedColor = true;
         }
 
-        private bool m_expireSolution;
-
         private bool m_update = false; // how does this act as a true toggle (only on true)?
         private bool m_autoUpdate = false;
         private bool m_eventAdded = true;
@@ -78,6 +74,18 @@ namespace LayerTableEvents
         private EventHandler<DocumentEventArgs> m_active_document_changed;
         private EventHandler<LayerTableEventArgs> m_layer_table_event;
         private EventHandler m_idle;
+
+        /// <summary>
+        /// Event type
+        /// </summary>
+        enum EventType
+        {
+            None,
+            RhinoDocEvent,
+            GHDocEvent,
+            LayerTableEvent,
+        }
+        private EventType m_event_type;
 
         /// <summary>
         /// Registers all the input parameters for this component.
@@ -183,6 +191,86 @@ namespace LayerTableEvents
             if (m_autoUpdate) HookRhinoEvents();
         }
 
+        private void HookRhinoEvents()
+        {
+            if (null == m_new_document)
+                RhinoDoc.NewDocument += m_new_document = OnRhinoDocEvent;
+
+            if (null == m_end_open_document)
+                RhinoDoc.EndOpenDocument += m_end_open_document = OnRhinoDocEvent;
+
+            if (null == m_close_document)
+                RhinoDoc.CloseDocument += m_close_document = OnRhinoDocEvent;
+
+            if (null == m_active_document_changed)
+                RhinoDoc.ActiveDocumentChanged += m_active_document_changed = OnRhinoDocEvent;
+
+            if (null == m_layer_table_event)
+                RhinoDoc.LayerTableEvent += m_layer_table_event = OnLayerTableEvent;
+        }
+
+        private void UnhookRhinoEvents()
+        {
+            if (null != m_new_document)
+            {
+                RhinoDoc.NewDocument -= m_new_document;
+                m_new_document = null;
+            }
+
+            if (null != m_end_open_document)
+            {
+                RhinoDoc.EndOpenDocument -= m_end_open_document;
+                m_end_open_document = null;
+            }
+
+            if (null != m_close_document)
+            {
+                RhinoDoc.CloseDocument -= m_close_document;
+                m_close_document = null;
+            }
+
+            if (null != m_active_document_changed)
+            {
+                RhinoDoc.ActiveDocumentChanged -= m_active_document_changed;
+                m_active_document_changed = null;
+            }
+
+            if (null != m_layer_table_event)
+            {
+                RhinoDoc.LayerTableEvent -= m_layer_table_event;
+                m_layer_table_event = null;
+            }
+        }
+
+        private void HookRhinoIdle(EventType eventType)
+        {
+            if (null == m_idle)
+            {
+                m_event_type = eventType;
+                RhinoApp.Idle += m_idle = OnIdle;
+            }
+        }
+
+        private void UnhookRhinoIdle()
+        {
+            m_event_type = EventType.None;
+            if (null != m_idle)
+            {
+                RhinoApp.Idle -= m_idle;
+                m_idle = null;
+            }
+        }
+
+        private void OnRhinoDocEvent(object sender, DocumentEventArgs args)
+        {
+            HookRhinoIdle(EventType.RhinoDocEvent);
+        }
+
+        private void OnLayerTableEvent(object sender, LayerTableEventArgs args)
+        {
+            if (LayerEventShouldExpire(args)) HookRhinoIdle(EventType.LayerTableEvent);
+        }
+
         /// <summary>
         /// This method will be called when the document that owns this object moves into a different context.
         /// </summary>
@@ -243,113 +331,28 @@ namespace LayerTableEvents
         //    RemoveEvents();
         //}
 
-        private void HookRhinoEvents()
+
+        private void OnIdle(object sender, EventArgs args)
         {
-            if (null == m_new_document)
-                RhinoDoc.NewDocument += m_new_document = OnRhinoDocEvent;
-
-            if (null == m_end_open_document)
-                RhinoDoc.EndOpenDocument += m_end_open_document = OnRhinoDocEvent;
-
-            if (null == m_close_document)
-                RhinoDoc.CloseDocument += m_close_document = OnRhinoDocEvent;
-
-            if (null == m_active_document_changed)
-                RhinoDoc.ActiveDocumentChanged += m_active_document_changed = OnRhinoDocEvent;
-
-            if (null == m_layer_table_event)
-                RhinoDoc.LayerTableEvent += m_layer_table_event = OnLayerTableEvent;
-        }
-
-        private void UnhookRhinoEvents()
-        {
-            if (null != m_new_document)
-            {
-                RhinoDoc.NewDocument -= m_new_document;
-                m_new_document = null;
-            }
-
-            if (null != m_end_open_document)
-            {
-                RhinoDoc.EndOpenDocument -= m_end_open_document;
-                m_end_open_document = null;
-            }
-
-            if (null != m_close_document)
-            {
-                RhinoDoc.CloseDocument -= m_close_document;
-                m_close_document = null;
-            }
-
-            if (null != m_active_document_changed)
-            {
-                RhinoDoc.ActiveDocumentChanged -= m_active_document_changed;
-                m_active_document_changed = null;
-            }
-
-            if (null != m_layer_table_event)
-            {
-                RhinoDoc.LayerTableEvent -= m_layer_table_event;
-                m_layer_table_event = null;
-            }
-        }
-
-        private void HookRhinoIdle(DocumentEventArgs args)
-        {
-            if (null == m_idle)
-            {
-                m_event_type = args
-                RhinoApp.Idle += m_idle = OnIdle;
-            }
-        }
-
-        private void UnhookRhinoIdle()
-        {
-            m_event_type = EventType.None;
-            if (null != m_idle)
-            {
-                RhinoApp.Idle -= m_idle;
-                m_idle = null;
-            }
-        }
-
-        private void OnRhinoDocEvent(object sender, DocumentEventArgs args)
-        {
-            HookRhinoIdle(args);
-        }
-
-        private void OnLayerTableEvent(object sender, LayerTableEventArgs args)
-        {
-            HookRhinoIdle(args);
-        }
-
-        private void OnIdle(object sender, EventArgs e)
-        {
+            RhinoApp.WriteLine("OnIdle");
             switch (m_event_type)
             {
-                case EventType.NewDocument:
-                    ExpireSolution(true);
-                    break;
-                case EventType.EndOpenDocument:
-                    ExpireSolution(true);
-                    break;
-                case EventType.CloseDocument:
-                    ExpireSolution(true);
-                    break;
-                case EventType.ActiveDocumentChanged:
+                case EventType.RhinoDocEvent:
+                    RhinoApp.WriteLine("RhinoDocEvent");
                     ExpireSolution(true);
                     break;
                 case EventType.LayerTableEvent:
-                    if (LayerEventShouldExpire(e)) ExpireSolution(true);
+                    RhinoApp.WriteLine("LayerTableEvent");
+                    ExpireSolution(true);
                     break;
             }
             UnhookRhinoIdle();
         }
 
-         private bool LayerEventShouldExpire(LayerTableEventArgs e)
+         private bool LayerEventShouldExpire(LayerTableEventArgs args)
          {
             RhinoApp.WriteLine("ProcessLayerTableEvent");
-            switch (e.EventType)
+            switch (args.EventType)
             {
                 case LayerTableEventType.Added:
                     RhinoApp.WriteLine("Added");
@@ -376,23 +379,14 @@ namespace LayerTableEvents
                             !m_eventModifiedName ||
                             !m_eventModifiedColor)
                         {
-                            RhinoApp.WriteLine("!Modifier");
-                            if (e.OldState != null && e.NewState != null)
+                            RhinoApp.WriteLine("Modifier type is toggled off");
+                            if (args.OldState != null && args.NewState != null)
                             {
-                                RhinoApp.WriteLine("!State");
-                                if ((m_eventModifiedLocked && e.OldState.IsLocked != e.NewState.IsLocked) ||
-                                    (m_eventModifiedVisible && e.OldState.IsVisible != e.NewState.IsVisible) ||
-                                    (m_eventModifiedParent && e.OldState.ParentLayerId != e.NewState.ParentLayerId) ||
-                                    (m_eventModifiedName && e.OldState.Name != e.NewState.Name) ||
-                                    (m_eventModifiedColor && e.OldState.Color != e.NewState.Color))
-                                {
-                                    RhinoApp.WriteLine("expireSolution");
-                                    return true;
-                                }
-                                else
-                                {
-                                    return false;
-                                }
+                                return ((m_eventModifiedLocked && args.OldState.IsLocked != args.NewState.IsLocked) ||
+                                    (m_eventModifiedVisible && args.OldState.IsVisible != args.NewState.IsVisible) ||
+                                    (m_eventModifiedParent && args.OldState.ParentLayerId != args.NewState.ParentLayerId) ||
+                                    (m_eventModifiedName && args.OldState.Name != args.NewState.Name) ||
+                                    (m_eventModifiedColor && args.OldState.Color != args.NewState.Color));
                             }
                         }
                     }
