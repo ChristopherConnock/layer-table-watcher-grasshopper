@@ -55,18 +55,18 @@ namespace LayerTableEvents
             m_eventModifiedColor = true;
         }
 
-        private bool m_update = false; // how does this act as a true toggle (only on true)?
-        private bool m_autoUpdate = false;
-        private bool m_eventAdded = true;
-        private bool m_eventDeleted = true;
-        private bool m_eventModified = true;
-        private bool m_eventSorted = false;
-        private bool m_eventCurrent = false;
-        private bool m_eventModifiedLocked = true;
-        private bool m_eventModifiedVisible = true;
-        private bool m_eventModifiedParent = true;
-        private bool m_eventModifiedName = true;
-        private bool m_eventModifiedColor = true;
+        private bool m_update;
+        private bool m_autoUpdate;
+        private bool m_eventAdded;
+        private bool m_eventDeleted;
+        private bool m_eventModified;
+        private bool m_eventSorted;
+        private bool m_eventCurrent;
+        private bool m_eventModifiedLocked;
+        private bool m_eventModifiedVisible;
+        private bool m_eventModifiedParent;
+        private bool m_eventModifiedName;
+        private bool m_eventModifiedColor;
 
         private EventHandler<DocumentEventArgs> m_new_document;
         private EventHandler<DocumentOpenEventArgs> m_end_open_document;
@@ -82,7 +82,6 @@ namespace LayerTableEvents
         {
             None,
             RhinoDocEvent,
-            GHDocEvent,
             LayerTableEvent,
         }
         private EventType m_event_type;
@@ -271,65 +270,60 @@ namespace LayerTableEvents
             if (LayerEventShouldExpire(args)) HookRhinoIdle(EventType.LayerTableEvent);
         }
 
-        /// <summary>
-        /// This method will be called when the document that owns this object moves into a different context.
-        /// </summary>
-        /// <param name="document">Document that owns this object.</param>
-        /// <param name="context">The reason for this event.<br/>
-        ///     Unknown	 0:	Specifies unknown context.This should never be used.<br/>
-        ///     None     1:	Specifies unset state.This is only used for documents that have never been in a context.<br/>
-        ///     Open     2:	Indicates the document was created anew from a file.<br/>
-        ///     Close    3:	Indicates the document has been unloaded from memory.<br/>
-        ///     Loaded   4:	Indicates the document has been loaded into the Canvas.<br/>
-        ///     Unloaded 5:	Indicates the document has been unloaded from the Canvas.<br/>
-        ///     Lock     6:	Indicates the document has been locked. This is only possible for nested documents.<br/>
-        ///     Unlock   7:	Indicates the document has been unlocked. This is only possible for nested documents.
-        /// </param>
-        //public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context)
-        //{
-        //    RhinoApp.WriteLine("DocumentContextChanged");
-        //    switch (context)
-        //    {
-        //        case GH_DocumentContext.Open:
-        //            RhinoApp.WriteLine("Open");
-        //            break;
-        //        case GH_DocumentContext.Close:
-        //            RhinoApp.WriteLine("Close");
-        //            RemoveEvents();
-        //            break;
-        //        case GH_DocumentContext.Loaded:
-        //            RhinoApp.WriteLine("Loaded");
-        //            break;
-        //        case GH_DocumentContext.Unloaded:
-        //            RhinoApp.WriteLine("Unloaded");
-        //            RemoveEvents();
-        //            break;
-        //        case GH_DocumentContext.Lock:
-        //            RhinoApp.WriteLine("Lock");
-        //            RemoveEvents();
-        //            break;
-        //        case GH_DocumentContext.Unlock:
-        //            RhinoApp.WriteLine("Unlock");
-        //            break;
-        //        default:
-        //            break;
-        //    }
-        //}
-        //public override void AddedToDocument(GH_Document document)
-        //{
-        //    RhinoApp.WriteLine("AddedToDocument");
-        //    if (Locked)
-        //    {
-        //        RhinoApp.WriteLine("Locked");
-        //        RemoveEvents();
-        //    }
-        //}
-        //
-        //public override void RemovedFromDocument(GH_Document document)
-        //{
-        //    RhinoApp.WriteLine("RemovedFromDocument");
-        //    RemoveEvents();
-        //}
+        public override void DocumentContextChanged(GH_Document document, GH_DocumentContext context)
+        {
+            RhinoApp.WriteLine("DocumentContextChanged");
+            switch (context)
+            {
+                case GH_DocumentContext.Open:
+                    RhinoApp.WriteLine("Open");
+                    break;
+                case GH_DocumentContext.Close:
+                    RhinoApp.WriteLine("Close");
+                    UnhookRhinoEvents();
+                    break;
+                case GH_DocumentContext.Loaded:
+                    RhinoApp.WriteLine("Loaded");
+                    if (m_autoUpdate) ExpireSolution(true);
+                    break;
+                case GH_DocumentContext.Unloaded:
+                    RhinoApp.WriteLine("Unloaded");
+                    UnhookRhinoEvents();
+                    break;
+                case GH_DocumentContext.Lock:
+                    RhinoApp.WriteLine("Lock");
+                    UnhookRhinoEvents();
+                    break;
+                case GH_DocumentContext.Unlock:
+                    RhinoApp.WriteLine("Unlock");
+                    if (m_autoUpdate) ExpireSolution(true);
+                    break;
+                case GH_DocumentContext.None:
+                    RhinoApp.WriteLine("None");
+                    break;
+                case GH_DocumentContext.Unknown:
+                    RhinoApp.WriteLine("Unknown");
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        public override void AddedToDocument(GH_Document document)
+        {
+            RhinoApp.WriteLine("AddedToDocument");
+            if (Locked)
+            {
+                RhinoApp.WriteLine("Locked");
+                UnhookRhinoEvents();
+            }
+        }
+        
+        public override void RemovedFromDocument(GH_Document document)
+        {
+            RhinoApp.WriteLine("RemovedFromDocument");
+            UnhookRhinoEvents();
+        }
 
 
         private void OnIdle(object sender, EventArgs args)
