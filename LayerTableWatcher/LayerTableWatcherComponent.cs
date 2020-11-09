@@ -9,14 +9,14 @@ using Grasshopper.Kernel.Special;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Rhino.Render;
 
 
-// RW: No per component watcher? Single event handler? Ala Ladybug's buzzzzz? Output Debug triggers? How does it deal with worksessions? Toggle for linked worksesh docs...
-
-// In order to load the result of this wizard, you will also need to
-// add the output bin/ folder of this project to the list of loaded
-// folder in Grasshopper.
-// You can use the _GrasshopperDeveloperSettings Rhino command for that.
+// RW: No per component watcher? 
+// Single event handler? Ala Ladybug's buzzzzz? 
+// Output Debug triggers? 
+// How does it deal with worksessions? 
+// Toggle for linked worksesh docs...
 
 namespace LayerTableEvents
 {
@@ -147,6 +147,7 @@ namespace LayerTableEvents
             RhinoDoc doc = RhinoDoc.ActiveDoc;
             LayerTable layerTable = doc.Layers;
             LinetypeTable linetypeTable = doc.Linetypes;
+            MaterialTable materialTable = doc.Materials;
 
             var name = new List<string>();
             var fullPath = new List<string>();
@@ -167,7 +168,10 @@ namespace LayerTableEvents
                     fullPath.Add(layer.FullPath);
                     color.Add(layer.Color);
                     linetype.Add(linetypeTable.FindIndex(layer.LinetypeIndex).Name);
-                    material.Add(layer.RenderMaterial?.Name);
+                    RenderMaterial layerMaterialByRenderMaterial = layer.RenderMaterial;
+                    RenderMaterial layerMaterialByMaterialTable = materialTable.FindIndex(layer.RenderMaterialIndex)?.RenderMaterial;
+                    string layerMaterialName = null != layerMaterialByRenderMaterial ? layerMaterialByRenderMaterial?.Name : layerMaterialByMaterialTable?.Name;
+                    material.Add(layerMaterialName);
                     visible.Add(layer.IsVisible);
                     printwidth.Add(layer.PlotWeight);
                     printcolor.Add(layer.PlotColor);
@@ -276,7 +280,6 @@ namespace LayerTableEvents
             switch (context)
             {
                 case GH_DocumentContext.Open:
-                    RhinoApp.WriteLine("Open");
                     break;
                 case GH_DocumentContext.Close:
                     RhinoApp.WriteLine("Close");
@@ -318,13 +321,12 @@ namespace LayerTableEvents
                 UnhookRhinoEvents();
             }
         }
-        
+
         public override void RemovedFromDocument(GH_Document document)
         {
             RhinoApp.WriteLine("RemovedFromDocument");
             UnhookRhinoEvents();
         }
-
 
         private void OnIdle(object sender, EventArgs args)
         {
@@ -339,13 +341,14 @@ namespace LayerTableEvents
                     RhinoApp.WriteLine("LayerTableEvent");
                     ExpireSolution(true);
                     break;
+                default:
+                    break;
             }
             UnhookRhinoIdle();
         }
 
-         private bool LayerEventShouldExpire(LayerTableEventArgs args)
-         {
-            RhinoApp.WriteLine("ProcessLayerTableEvent");
+        private bool LayerEventShouldExpire(LayerTableEventArgs args)
+        {
             switch (args.EventType)
             {
                 case LayerTableEventType.Added:
@@ -367,9 +370,9 @@ namespace LayerTableEvents
                     RhinoApp.WriteLine("Modified");
                     if (m_eventModified)
                     {
-                        if (!m_eventModifiedLocked || 
+                        if (!m_eventModifiedLocked ||
                             !m_eventModifiedVisible ||
-                            !m_eventModifiedParent || 
+                            !m_eventModifiedParent ||
                             !m_eventModifiedName ||
                             !m_eventModifiedColor)
                         {
@@ -387,8 +390,8 @@ namespace LayerTableEvents
                     return m_eventModified;
                 default:
                     return true;
-             }
-         }
+            }
+        }
 
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
